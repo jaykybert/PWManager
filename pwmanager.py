@@ -1,13 +1,20 @@
-import cryptography
 import getpass
 import pyperclip
 import sqlite3
 import sys
 
+from cryptography.fernet import Fernet
+
+
+TEMP_KEY = "fIhZ5DvAx-2sh18VLvRjt9WDiZll5ficgaP8GcfNJh4="
+cipher = Fernet(TEMP_KEY)
 
 # TODO: Allow update -s func to accept a shorthand name as the new service name where it is already defined as the shorthand.
 # TODO: Expand list: -a for alphabetical, -e for displaying emails, -c for display account count for each service, etc.
-# TODO: Add cryptography - don't store plaintext passwords..
+# TODO: Add cryptography - other funcs (update)
+# TODO: Clean up function structure - the get function needs to be made more efficient.
+# TODO: Move encryption key to separate file.
+# TODO: Fix directory storage of db - maybe ask for url path when creating, then use that to connect to?
 
 # ---------- Query Functions ---------- #
 
@@ -247,10 +254,14 @@ def add(service):
 
         if len(cursor.fetchall()) == 0:  # Account doesn't exist.
             pw = getpass.getpass("Enter Password\n > ")
+            # Encrypt password, convert type into string.
+            encrypted = cipher.encrypt(str.encode(pw))
+            encrypted_str = encrypted.decode("utf-8", "strict")
             # Add account.
-            cursor.execute("""INSERT INTO account VALUES (?, ?, ?);""", (username, pw, rec[0]))
+            cursor.execute("""INSERT INTO account VALUES (?, ?, ?);""", (username, encrypted_str, rec[0]))
             connection.commit()
             print("Account added.")
+
         else:
             print("An account with this username already exists.")
 
@@ -265,7 +276,9 @@ def get(service):
     if rec is None:
         print("Service doesn't exist (or have any associated accounts).")
     elif len(rec) == 1:
-        pyperclip.copy(rec[0][1])
+        encrypted_pw = str.encode(rec[0][1])
+        decrypted_pw = cipher.decrypt(encrypted_pw)
+        pyperclip.copy(decrypted_pw.decode("utf-8", "strict"))
         print("Password copied to clipboard. (username: %s)" % rec[0][0])
     else:
         print("Which account? (enter number)")
@@ -275,7 +288,10 @@ def get(service):
         try:
             acc = int(input(" > "))
             try:
-                pyperclip.copy(rec[acc - 1][1])
+                # Get encrypted password (string), convert to bytes, decrypt, convert back to string.
+                encrypted_pw = str.encode(rec[acc-1][1])
+                decrypted_pw = cipher.decrypt(encrypted_pw)
+                pyperclip.copy(decrypted_pw.decode("utf-8", "strict"))
                 print("Password copied to clipboard.")
             except IndexError:
                 print("Invalid choice.")
