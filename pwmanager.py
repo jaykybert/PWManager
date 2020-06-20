@@ -10,8 +10,6 @@ TEMP_KEY = "fIhZ5DvAx-2sh18VLvRjt9WDiZll5ficgaP8GcfNJh4="
 cipher = Fernet(TEMP_KEY)
 
 # TODO: Allow update -s func to accept a shorthand name as the new service name where it is already defined as the shorthand.
-# TODO: Expand list: -a for alphabetical, -e for displaying emails, -c for display account count for each service, etc.
-# TODO: Add cryptography - other funcs (update)
 # TODO: Clean up function structure - the get function needs to be made more efficient.
 # TODO: Move encryption key to separate file.
 # TODO: Fix directory storage of db - maybe ask for url path when creating, then use that to connect to?
@@ -283,8 +281,7 @@ def get(service):
     else:
         print("Which account? (enter number)")
         for i in range(0, len(rec)):
-            print(str(i+1) + ": %s" % rec[i][0])
-
+            print("[%d] %s" % (i+1, rec[i][0]))
         try:
             acc = int(input(" > "))
             try:
@@ -300,7 +297,6 @@ def get(service):
 
 
 def update_account(service):
-
     rec = get_accounts_from_service(service)
     if rec is None:
         print("Account or service doesn't exist.")
@@ -314,10 +310,9 @@ def update_account(service):
         print("Account updated. (%s)" % rec[0][0])
 
     else:  # Multiple accounts.
-        print("todo")
         print("Which account? (enter number)")
         for i in range(0, len(rec)):
-            print("%d: %s" % (i+1, rec[i][0]))
+            print("[%d] %s" % (i+1, rec[i][0]))
 
         try:
             acc = int(input(" > "))
@@ -329,18 +324,22 @@ def update_account(service):
 
                 # check other accounts don't have the same name - avoid the actual current one tho.
                 if username != rec[acc-1][0]:  # entered different username.
-                    cursor.execute("""SELECT * FROM account WHERE account_name = ? AND service_name = ?;""", (username, service))
+                    cursor.execute("""SELECT * FROM account WHERE account_name = ? AND service_name = ?;""",
+                                   (username, service))
+
                     check_account = cursor.fetchone()
                     if check_account is not None:
                         print("This username is already associated with another account.")
                         return
 
-                # continue here
-                pw = input("Enter Password\n > ")
+                pw = getpass.getpass("Enter Password\n > ")
+                # Encrypt password, convert type into string.
+                encrypted = cipher.encrypt(str.encode(pw))
+                encrypted_str = encrypted.decode("utf-8", "strict")
                 cursor.execute("UPDATE account SET account_name = ?, account_pw = ? WHERE account_name = ?;",
-                               (username, pw, rec[acc-1][0]))
+                               (username, encrypted_str, rec[acc-1][0]))
                 connection.commit()
-                print("Accounted updated. (%s -> %s)" % (rec[acc-1][0], username))
+                print("Account updated. (%s -> %s)" % (rec[acc-1][0], username))
 
         except ValueError:
             print("Invalid input.")
@@ -420,7 +419,7 @@ def remove_account(service):
     else:
         print("Which account? (enter number)")
         for i in range(0, len(accounts)):
-            print(str(i + 1) + ": %s" % accounts[i][0])
+            print("[%d] %s" % (i+1, accounts[i][0]))
         try:
             acc = int(input(" > "))
             cursor.execute("DELETE FROM account WHERE account_name = ?;", (accounts[acc-1][0],))
@@ -578,6 +577,7 @@ def rollback():
 
 # ---------- Run ---------- #
 
+# db connection must specify path of stored db. Otherwise it'll make one in the current dir.
 connection = sqlite3.connect("store.db")
 cursor = connection.cursor()
 
