@@ -12,7 +12,6 @@ cipher = Fernet(TEMP_KEY)
 # TODO: Allow update -s func to accept a shorthand name as the new service name where it is already defined as the shorthand.
 # TODO: Clean up function structure - the get function needs to be made more efficient.
 # TODO: Move encryption key to separate file.
-# TODO: Fix directory storage of db - maybe ask for url path when creating, then use that to connect to?
 
 # ---------- Query Functions ---------- #
 
@@ -171,7 +170,7 @@ def menu():
             if sys.argv[2].upper() == "CONFIRM":
                 create()
             else:
-                print("Table creation requires confirmation. Type CONFIRM after CREATE.")
+                print("Type CONFIRM after CREATE.")
         else:
             print("Invalid number of arguments. Type CONFIRM after CREATE.")
 
@@ -270,30 +269,34 @@ def get(service):
 
     :param service: name or shorthand of the service.
     """
-    rec = get_accounts_from_service(service)
-    if rec is None:
-        print("Service doesn't exist (or have any associated accounts).")
-    elif len(rec) == 1:
-        encrypted_pw = str.encode(rec[0][1])
-        decrypted_pw = cipher.decrypt(encrypted_pw)
-        pyperclip.copy(decrypted_pw.decode("utf-8", "strict"))
-        print("Password copied to clipboard. (username: %s)" % rec[0][0])
+    ser = get_service_name(service)
+    if ser is None:
+        print("Service doesn't exist.")
     else:
-        print("Which account? (enter number)")
-        for i in range(0, len(rec)):
-            print("[%d] %s" % (i+1, rec[i][0]))
-        try:
-            acc = int(input(" > "))
+        rec = get_accounts_from_service(service)
+        if rec is None:
+            print("This service doesn't have any associated accounts.")
+        elif len(rec) == 1:
+            encrypted_pw = str.encode(rec[0][1])
+            decrypted_pw = cipher.decrypt(encrypted_pw)
+            pyperclip.copy(decrypted_pw.decode("utf-8", "strict"))
+            print("Password copied to clipboard. (username: %s)" % rec[0][0])
+        else:
+            print("Which account? (enter number)")
+            for i in range(0, len(rec)):
+                print("[%d] %s" % (i+1, rec[i][0]))
             try:
-                # Get encrypted password (string), convert to bytes, decrypt, convert back to string.
-                encrypted_pw = str.encode(rec[acc-1][1])
-                decrypted_pw = cipher.decrypt(encrypted_pw)
-                pyperclip.copy(decrypted_pw.decode("utf-8", "strict"))
-                print("Password copied to clipboard.")
-            except IndexError:
-                print("Invalid choice.")
-        except ValueError:
-            print("Invalid input.")
+                acc = int(input(" > "))
+                try:
+                    # Get encrypted password (string), convert to bytes, decrypt, convert back to string.
+                    encrypted_pw = str.encode(rec[acc-1][1])
+                    decrypted_pw = cipher.decrypt(encrypted_pw)
+                    pyperclip.copy(decrypted_pw.decode("utf-8", "strict"))
+                    print("Password copied to clipboard.")
+                except IndexError:
+                    print("Invalid choice.")
+            except ValueError:
+                print("Invalid input.")
 
 
 def update_account(service):
@@ -521,7 +524,8 @@ def info(keyword=None):
               "Form: CLEAR" % keyword)
 
     elif keyword == "CREATE":
-        print("-----> %s Help\nCreate the database tables. Requires confirmation upon use.\n"
+        print("-----> %s Help\nCreate the database tables in the current working directory."
+              " Requires confirmation upon use.\n"
               "Form: CREATE confirm" % keyword)
 
     elif keyword == "DROP":
@@ -577,9 +581,7 @@ def rollback():
 
 # ---------- Run ---------- #
 
-# db connection must specify path of stored db. Otherwise it'll make one in the current dir.
-connection = sqlite3.connect("store.db")
-cursor = connection.cursor()
-
 if __name__ == "__main__":
+    connection = sqlite3.connect("store.db")
+    cursor = connection.cursor()
     menu()
