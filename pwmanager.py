@@ -2,6 +2,7 @@ import getpass
 import pyperclip
 import sqlite3
 import sys
+import os
 
 from cryptography.fernet import Fernet
 
@@ -582,6 +583,10 @@ def rollback():
 # ---------- Run ---------- #
 
 if __name__ == "__main__":
-    connection = sqlite3.connect("store.db")
+    # Store the .db in the same folder as the pwmanager.py script.
+    full_path = os.path.realpath(__file__)
+    path = os.path.split(full_path)[0]  # [0] is path, [1] is file.
+    os.path.join(path, "store.db")
+    connection = sqlite3.connect(os.path.join(path, "store.db"))
     cursor = connection.cursor()
     menu()
