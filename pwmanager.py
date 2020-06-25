@@ -7,9 +7,6 @@ import os
 from cryptography.fernet import Fernet
 
 
-TEMP_KEY = "fIhZ5DvAx-2sh18VLvRjt9WDiZll5ficgaP8GcfNJh4="
-cipher = Fernet(TEMP_KEY)
-
 # TODO: Allow update -s func to accept a shorthand name as the new service name where it is already defined as the shorthand.
 # TODO: Clean up function structure - the get function needs to be made more efficient.
 # TODO: Move encryption key to separate file.
@@ -83,6 +80,31 @@ def get_accounts_from_service(service):
         return None
     else:
         return accounts
+
+
+def encrypt(pw):
+    """ Encrypt a password using the stored key.
+
+    :param pw: the password to encrypt.
+    :return: the encrypted password.
+    """
+    cursor.execute("""SELECT key FROM enc;""")
+    key = cursor.fetchone()[0]
+    cipher = Fernet(key)
+    return cipher.encrypt(str.encode(pw))
+
+
+def decrypt(enc_pw):
+    """ Decrypt a password using the stored key.
+
+    :param enc_pw: the password to be decrypted.
+    :return: the decrypted password (in bytes).
+    """
+    cursor.execute("""SELECT key FROM enc;""")
+    key = cursor.fetchone()[0]
+    cipher = Fernet(key)
+    return cipher.decrypt(enc_pw)
+
 
 # ---------- Main Menu ---------- #
 
@@ -253,10 +275,14 @@ def add(service):
         if len(cursor.fetchall()) == 0:  # Account doesn't exist.
             pw = getpass.getpass("Enter Password\n > ")
             # Encrypt password, convert type into string.
+
+            enc_pw = encrypt(pw)
+            """
             encrypted = cipher.encrypt(str.encode(pw))
             encrypted_str = encrypted.decode("utf-8", "strict")
+            """
             # Add account.
-            cursor.execute("""INSERT INTO account VALUES (?, ?, ?);""", (username, encrypted_str, rec[0]))
+            cursor.execute("""INSERT INTO account VALUES (?, ?, ?);""", (username, enc_pw, rec[0]))
             connection.commit()
             print("Account added.")
 
@@ -278,9 +304,8 @@ def get(service):
         if rec is None:
             print("This service doesn't have any associated accounts.")
         elif len(rec) == 1:
-            encrypted_pw = str.encode(rec[0][1])
-            decrypted_pw = cipher.decrypt(encrypted_pw)
-            pyperclip.copy(decrypted_pw.decode("utf-8", "strict"))
+            pw_bytes = decrypt(rec[0][1])
+            pyperclip.copy(pw_bytes.decode("utf-8", "strict"))
             print("Password copied to clipboard. (username: %s)" % rec[0][0])
         else:
             print("Which account? (enter number)")
@@ -289,10 +314,8 @@ def get(service):
             try:
                 acc = int(input(" > "))
                 try:
-                    # Get encrypted password (string), convert to bytes, decrypt, convert back to string.
-                    encrypted_pw = str.encode(rec[acc-1][1])
-                    decrypted_pw = cipher.decrypt(encrypted_pw)
-                    pyperclip.copy(decrypted_pw.decode("utf-8", "strict"))
+                    pw_bytes = decrypt(rec[acc-1][1])
+                    pyperclip.copy(pw_bytes.decode("utf-8", "strict"))
                     print("Password copied to clipboard.")
                 except IndexError:
                     print("Invalid choice.")
@@ -308,8 +331,10 @@ def update_account(service):
         # One account exists. No need to check for conflicts.
         username = input("Enter Username\n > ")
         pw = getpass.getpass("Enter Password\n > ")
+        enc_pw = encrypt(pw)
+
         cursor.execute("UPDATE account SET account_name = ?, account_pw = ? WHERE account_name = ?;",
-                       (username, pw, rec[0][0]))
+                       (username, enc_pw, rec[0][0]))
         connection.commit()
         print("Account updated. (%s)" % rec[0][0])
 
@@ -320,13 +345,13 @@ def update_account(service):
 
         try:
             acc = int(input(" > "))
-            # check it exists.
+            # Check it exists.
             if acc-1 <= len(rec):
                 username = input("Enter Username\n > ")
 
                 service = get_service_name(service)
 
-                # check other accounts don't have the same name - avoid the actual current one tho.
+                # Check other accounts don't have the same name - avoid the actual current one tho.
                 if username != rec[acc-1][0]:  # entered different username.
                     cursor.execute("""SELECT * FROM account WHERE account_name = ? AND service_name = ?;""",
                                    (username, service))
@@ -338,10 +363,9 @@ def update_account(service):
 
                 pw = getpass.getpass("Enter Password\n > ")
                 # Encrypt password, convert type into string.
-                encrypted = cipher.encrypt(str.encode(pw))
-                encrypted_str = encrypted.decode("utf-8", "strict")
+                enc_pw = encrypt(pw)
                 cursor.execute("UPDATE account SET account_name = ?, account_pw = ? WHERE account_name = ?;",
-                               (username, encrypted_str, rec[acc-1][0]))
+                               (username, enc_pw, rec[acc-1][0]))
                 connection.commit()
                 print("Account updated. (%s -> %s)" % (rec[acc-1][0], username))
 
@@ -489,6 +513,8 @@ def info(keyword=None):
               "\n  - DEFINE\n  - ADD\n  - GET\n  - UPDATE\n  - REMOVE\n  - LS\n  - CLEAR\n  - CREATE\n  - DROP\n"
               "  - ROLLBACK\nType HELP KEYWORD for information on a specific keyword.")
 
+        encrypt("pass")
+
     elif keyword == "DEFINE":
         print("-----> %s Help\nAdd a service with a name and optional shorthand keyword. Service name"
               " and shorthand must not already be defined.\n"
@@ -544,7 +570,7 @@ def info(keyword=None):
 # ---------- Database Functions ---------- #
 
 def create():
-    """ Create the tables. """
+    """ Create the tables. Generate a key, store in db. """
     try:
         cursor.execute("""CREATE TABLE service (
                         service_name  text PRIMARY KEY,
@@ -556,8 +582,15 @@ def create():
                         service_name text NOT NULL,
                         FOREIGN KEY (service_name) REFERENCES service(service_name));""")
 
+        cursor.execute("""CREATE TABLE enc (key text);""")
+
+        # Generate and store key.
+        key = Fernet.generate_key()
+        cursor.execute("""INSERT INTO enc VALUES(?)""", (key,))
+
         connection.commit()
         print("Tables created.")
+
     except sqlite3.OperationalError:
         print("Tables already exist.")
 
@@ -567,6 +600,7 @@ def drop():
     try:
         cursor.execute("DROP TABLE account;")
         cursor.execute("DROP TABLE service;")
+        cursor.execute("DROP TABLE enc;")
         connection.commit()
         print("Tables deleted.")
 
