@@ -1,17 +1,16 @@
+
+from cryptography.fernet import Fernet
 import getpass
+import os
 import pyperclip
 import sqlite3
 import sys
-import os
-
-from cryptography.fernet import Fernet
-
 
 # TODO: Allow update -s func to accept a shorthand name as the new service name where it is already defined as the shorthand.
-# TODO: Clean up function structure - the get function needs to be made more efficient.
-# TODO: Move encryption key to separate file.
+# TODO: Clean up function structure - functions needs to be made more efficient - lots of duplication atm.
 
 # ---------- Query Functions ---------- #
+
 
 def get_service_info(name):
     """ Return the service name (key) and shorthand using the input to
@@ -88,7 +87,7 @@ def encrypt(pw):
     :param pw: the password to encrypt.
     :return: the encrypted password.
     """
-    cursor.execute("""SELECT key FROM enc;""")
+    cursor.execute("""SELECT key FROM encryption;""")
     key = cursor.fetchone()[0]
     cipher = Fernet(key)
     return cipher.encrypt(str.encode(pw))
@@ -100,10 +99,15 @@ def decrypt(enc_pw):
     :param enc_pw: the password to be decrypted.
     :return: the decrypted password (in bytes).
     """
-    cursor.execute("""SELECT key FROM enc;""")
+    cursor.execute("""SELECT key FROM encryption;""")
     key = cursor.fetchone()[0]
     cipher = Fernet(key)
     return cipher.decrypt(enc_pw)
+
+
+def tables_exist():
+    cursor.execute("""SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'encryption';""")
+    return len(cursor.fetchall()) > 0
 
 
 # ---------- Main Menu ---------- #
@@ -232,6 +236,9 @@ def define(service, shorthand=None):
     :param service: the name of the service.
     :param shorthand: the (optional) shorthand of the name, for ease of use.
     """
+    if not tables_exist():
+        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        return
 
     if shorthand is None:  # Only check for name conflicts.
         cursor.execute("""SELECT * FROM service WHERE
@@ -261,9 +268,13 @@ def add(service):
 
     :param service: the service to create an account for (either name or shorthand).
     """
+    if not tables_exist():
+        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        return
+
     cursor.execute("""SELECT service_name FROM service WHERE service_name = ? OR shorthand_name == ?;""",
                    (service, service))
-    rec = cursor.fetchone()  # fetchone() returns tuple, not list of tuples. Indexing changes.
+    rec = cursor.fetchone()
 
     if rec is None:
         print("Service doesn't exist. Define a service using the DEFINE keyword.")
@@ -275,12 +286,8 @@ def add(service):
         if len(cursor.fetchall()) == 0:  # Account doesn't exist.
             pw = getpass.getpass("Enter Password\n > ")
             # Encrypt password, convert type into string.
-
             enc_pw = encrypt(pw)
-            """
-            encrypted = cipher.encrypt(str.encode(pw))
-            encrypted_str = encrypted.decode("utf-8", "strict")
-            """
+
             # Add account.
             cursor.execute("""INSERT INTO account VALUES (?, ?, ?);""", (username, enc_pw, rec[0]))
             connection.commit()
@@ -296,6 +303,10 @@ def get(service):
 
     :param service: name or shorthand of the service.
     """
+    if not tables_exist():
+        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        return
+
     ser = get_service_name(service)
     if ser is None:
         print("Service doesn't exist.")
@@ -324,6 +335,14 @@ def get(service):
 
 
 def update_account(service):
+    """ Update an account with a new username and password.
+
+    :param service: the service to which the account belongs.
+    """
+    if not tables_exist():
+        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        return
+
     rec = get_accounts_from_service(service)
     if rec is None:
         print("Account or service doesn't exist.")
@@ -349,9 +368,7 @@ def update_account(service):
             if acc-1 <= len(rec):
                 username = input("Enter Username\n > ")
 
-                service = get_service_name(service)
-
-                # Check other accounts don't have the same name - avoid the actual current one tho.
+                # If the username is different from the current one, check that it doesn't conflict.
                 if username != rec[acc-1][0]:  # entered different username.
                     cursor.execute("""SELECT * FROM account WHERE account_name = ? AND service_name = ?;""",
                                    (username, service))
@@ -362,7 +379,6 @@ def update_account(service):
                         return
 
                 pw = getpass.getpass("Enter Password\n > ")
-                # Encrypt password, convert type into string.
                 enc_pw = encrypt(pw)
                 cursor.execute("UPDATE account SET account_name = ?, account_pw = ? WHERE account_name = ?;",
                                (username, enc_pw, rec[acc-1][0]))
@@ -374,6 +390,14 @@ def update_account(service):
 
 
 def update_service(service):
+    """ Update a service with a new name and (optional) shorthand.
+
+    :param service: the service to be updated.
+    """
+    if not tables_exist():
+        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        return
+
     service_info = get_service_info(service)
 
     if service_info is None:
@@ -385,7 +409,7 @@ def update_service(service):
 
     new_name = input("New Service Name:\n > ").lower()
 
-    """issue is here. we're checking that the entered name is different from the one stored.
+    """ Issue is here. we're checking that the entered name is different from the one stored.
     if it's the same, don't run the query to check its unique.
     but that means if the user enters the shorthand here, it will be checked in the query, and found (not unique)."""
     if new_name != stored_name:
@@ -420,6 +444,10 @@ def remove_service(service_lookup):
 
     :param service_lookup: the service's name or shorthand.
     """
+    if not tables_exist():
+        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        return
+
     service = get_service_name(service_lookup)
     if service is None:
         print("Service doesn't exist.")
@@ -437,6 +465,10 @@ def remove_account(service):
 
     :param service: the account's service name/shorthand.
     """
+    if not tables_exist():
+        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        return
+
     accounts = get_accounts_from_service(service)
     if accounts is None:
         print("No related account.")
@@ -464,6 +496,9 @@ def ls(alphabetical=False, acc=False):
     :param alphabetical: display services alphabetically (on service name).
     :param acc: display all related account usernames.
     """
+    if not tables_exist():
+        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        return
 
     # Display services and the related accounts.
     if acc:
@@ -582,11 +617,11 @@ def create():
                         service_name text NOT NULL,
                         FOREIGN KEY (service_name) REFERENCES service(service_name));""")
 
-        cursor.execute("""CREATE TABLE enc (key text);""")
+        cursor.execute("""CREATE TABLE encryption (key text);""")
 
         # Generate and store key.
         key = Fernet.generate_key()
-        cursor.execute("""INSERT INTO enc VALUES(?)""", (key,))
+        cursor.execute("""INSERT INTO encryption VALUES(?)""", (key,))
 
         connection.commit()
         print("Tables created.")
@@ -600,7 +635,7 @@ def drop():
     try:
         cursor.execute("DROP TABLE account;")
         cursor.execute("DROP TABLE service;")
-        cursor.execute("DROP TABLE enc;")
+        cursor.execute("DROP TABLE encryption;")
         connection.commit()
         print("Tables deleted.")
 
@@ -617,10 +652,8 @@ def rollback():
 # ---------- Run ---------- #
 
 if __name__ == "__main__":
-    # Store the .db in the same folder as the pwmanager.py script.
     full_path = os.path.realpath(__file__)
     path = os.path.split(full_path)[0]  # [0] is path, [1] is file.
-    os.path.join(path, "store.db")
     connection = sqlite3.connect(os.path.join(path, "store.db"))
     cursor = connection.cursor()
     menu()
