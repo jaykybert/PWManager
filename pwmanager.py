@@ -6,8 +6,8 @@ import pyperclip
 import sqlite3
 import sys
 
-# TODO: Allow update -s func to accept a shorthand name as the new service name where it is already defined as the shorthand.
-# TODO: Clean up function structure - functions needs to be made more efficient - lots of duplication atm.
+
+# TODO: Improve function structure - lots of duplication at the moment.
 
 # ---------- Query Functions ---------- #
 
@@ -408,11 +408,11 @@ def update_service(service):
     stored_name, stored_short = service_info
 
     new_name = input("New Service Name:\n > ").lower()
+    # Avoid running elif. Indicative of poor structure but works for now.
+    if new_name == stored_short:
+        pass
 
-    """ Issue is here. we're checking that the entered name is different from the one stored.
-    if it's the same, don't run the query to check its unique.
-    but that means if the user enters the shorthand here, it will be checked in the query, and found (not unique)."""
-    if new_name != stored_name:
+    elif new_name != stored_name:
         if not check_service_unique(new_name):  # New name conflicts with stored data.
             print("Name already in use elsewhere.")
             return
@@ -426,12 +426,10 @@ def update_service(service):
     if new_short == "":  # Update without shorthand.
         cursor.execute("UPDATE service SET service_name = ?, shorthand_name = NULL WHERE service_name = ?;",
                        (new_name, stored_name))
-        connection.commit()
-
     else:  # Update with shorthand.
         cursor.execute("UPDATE service SET service_name = ?, shorthand_name = ? WHERE service_name = ?;",
                        (new_name, new_short, stored_name))
-        connection.commit()
+    connection.commit()
 
     # Update references to the old name in the account table.
     cursor.execute("UPDATE account SET service_name = ? WHERE service_name = ?;", (new_name, stored_name))
