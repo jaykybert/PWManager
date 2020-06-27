@@ -339,6 +339,19 @@ def update_account(service):
 
     :param service: the service to which the account belongs.
     """
+
+    def write_update(new_name, pw, old_name):
+        """ Write the updated information to the database.
+
+        :param new_name: The new account username.
+        :param pw: The new account password.
+        :param old_name: The old account username.
+        """
+        cursor.execute("UPDATE account SET account_name = ?, account_pw = ? WHERE account_name = ?;",
+                       (new_name, pw, old_name))
+        connection.commit()
+        print("Account updated. (%s -> %s)" % (old_name, new_name))
+
     if not tables_exist():
         print("Tables do not exist. Type CREATE CONFIRM to create tables.")
         return
@@ -352,10 +365,7 @@ def update_account(service):
         pw = getpass.getpass("Enter Password\n > ")
         enc_pw = encrypt(pw)
 
-        cursor.execute("UPDATE account SET account_name = ?, account_pw = ? WHERE account_name = ?;",
-                       (username, enc_pw, rec[0][0]))
-        connection.commit()
-        print("Account updated. (%s)" % rec[0][0])
+        write_update(username, enc_pw, rec[0][0])
 
     else:  # Multiple accounts.
         print("Which account? (enter number)")
@@ -372,7 +382,6 @@ def update_account(service):
                 if username != rec[acc-1][0]:  # entered different username.
                     cursor.execute("""SELECT * FROM account WHERE account_name = ? AND service_name = ?;""",
                                    (username, service))
-
                     check_account = cursor.fetchone()
                     if check_account is not None:
                         print("This username is already associated with another account.")
@@ -380,11 +389,7 @@ def update_account(service):
 
                 pw = getpass.getpass("Enter Password\n > ")
                 enc_pw = encrypt(pw)
-                cursor.execute("UPDATE account SET account_name = ?, account_pw = ? WHERE account_name = ?;",
-                               (username, enc_pw, rec[acc-1][0]))
-                connection.commit()
-                print("Account updated. (%s -> %s)" % (rec[acc-1][0], username))
-
+                write_update(username, enc_pw, rec[acc-1][0])
         except ValueError:
             print("Invalid input.")
 
