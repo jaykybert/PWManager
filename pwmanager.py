@@ -7,8 +7,6 @@ import sqlite3
 import sys
 
 
-# TODO: Improve function structure - lots of duplication at the moment.
-
 # ---------- Query Functions ---------- #
 
 
@@ -468,6 +466,16 @@ def remove_account(service):
 
     :param service: the account's service name/shorthand.
     """
+
+    def execute_remove(account_name):
+        """ Remove the provided account from the database.
+
+        :param account_name: the account to be deleted.
+        """
+        cursor.execute("DELETE FROM account WHERE account_name = ?;", (account_name,))
+        connection.commit()
+        print("Account deleted. (%s)" % account_name)
+
     if not tables_exist():
         print("Tables do not exist. Type CREATE CONFIRM to create tables.")
         return
@@ -475,22 +483,21 @@ def remove_account(service):
     accounts = get_accounts_from_service(service)
     if accounts is None:
         print("No related account.")
+
     elif len(accounts) == 1:
-        cursor.execute("DELETE FROM account WHERE account_name = ?; ", (accounts[0][0],))
-        connection.commit()
-        print("Account deleted. (%s)" % accounts[0][0])
+        execute_remove(accounts[0][0])
+
     else:
         print("Which account? (enter number)")
         for i in range(0, len(accounts)):
             print("[%d] %s" % (i+1, accounts[i][0]))
         try:
             acc = int(input(" > "))
-            cursor.execute("DELETE FROM account WHERE account_name = ?;", (accounts[acc-1][0],))
-            connection.commit()
-            print("Account deleted. (%s)" % accounts[acc-1][0])
-
-        except (ValueError, IndexError):
+            execute_remove(accounts[acc-1][0])
+        except ValueError:
             print("Invalid input.")
+        except IndexError:
+            print("Number out of bounds.")
 
 
 def ls(alphabetical=False, acc=False):
@@ -546,60 +553,60 @@ def info(keyword=None):
      or information for an optional keyword.
      """
     if keyword is None:  # Overview information.
-        print("A  simple command line-based password management system."
-              "To get started, use the CREATE keyword to setup the database.\n - Keywords:"
+        print(" A simple command line-based password management system.\n"
+              " To get started, use the CREATE keyword to setup the database along with CONFIRM.\n Then, define"
+              " a service using DEFINE, add accounts to a service using ADD, and get the password to an account"
+              " using GET.\n Below are all keywords. Type HELP KEYWORD for more information on a particular keyword."
               "\n  - DEFINE\n  - ADD\n  - GET\n  - UPDATE\n  - REMOVE\n  - LS\n  - CLEAR\n  - CREATE\n  - DROP\n"
-              "  - ROLLBACK\nType HELP KEYWORD for information on a specific keyword.")
-
-        encrypt("pass")
+              "  - ROLLBACK")
 
     elif keyword == "DEFINE":
-        print("-----> %s Help\nAdd a service with a name and optional shorthand keyword. Service name"
-              " and shorthand must not already be defined.\n"
-              "Form: DEFINE servicename\nForm: DEFINE servicename sn" % keyword)
+        print("-----> %s Help\n Add a service with a name and optional shorthand keyword. Service name"
+              " and shorthand must not already be defined.\n Service name and shorthand can be the same.\n"
+              " Form: DEFINE servicename\n Form: DEFINE servicename shorthand" % keyword)
 
     elif keyword == "ADD":
-        print("-----> %s Help\nAdd an account for a specific service. Provide an email and password.\n"
-              "The email must not already be associated with the specific service.\n"
-              "Form: ADD (service name or shorthand)" % keyword)
+        print("-----> %s Help\n Add an account for a specific service. Provide a username and password.\n"
+              " The username must not already be associated with the specific service.\n"
+              " Form: ADD (service name or shorthand)" % keyword)
 
     elif keyword == "GET":
-        print("-----> %s Help\nCopy the password of an account to the clipboard using the service name or shorthand.\n"
-              "Multiple accounts for a service require the user to choose the account.\n"
-              "Form: GET (service name or shorthand)" % keyword)
+        print("-----> %s Help\n Copy the password of an account to the clipboard using the service name or shorthand.\n"
+              " Multiple accounts for a service require the user to choose the account.\n"
+              " Form: GET (service name or shorthand)" % keyword)
 
     elif keyword == "UPDATE":
-        print("-----> %s Help\nModify a service's or account's information. Service modification updates related"
-              " accounts.\nService Form: UPDATE -s (servicename or shorthand)\n"
-              "Account Form: UPDATE -a (servicename or shorthand)" % keyword)
+        print("-----> %s Help\n Modify a service's or account's information. Service modification updates associated"
+              " accounts.\n Service Form: UPDATE -s (servicename or shorthand)\n"
+              " Account Form: UPDATE -a (servicename or shorthand)" % keyword)
 
     elif keyword == "REMOVE":
-        print("-----> %s Help\nRemove a service or account. Removing a service deletes all associated accounts.\n"
-              "Deleting an account from a service with multiple accounts will require the user to specify which one.\n"
-              "Service Form: REMOVE -s (servicename or shorthand)\n"
-              "Account Form: REMOVE -a (servicename or shorthand)" % keyword)
+        print("-----> %s Help\n Remove a service or account. Removing a service deletes all associated accounts.\n"
+              " Deleting an account from a service with multiple accounts will require the user to specify the account."
+              "\n Service Form: REMOVE -s (servicename or shorthand)\n"
+              " Account Form: REMOVE -a (servicename or shorthand)" % keyword)
 
     elif keyword == "LS":
-        print("-----> %s Help\nList all services and their respective shorthands.\nProvide -a to order alphabetically"
+        print("-----> %s Help\n List all services and their respective shorthands.\n Provide -a to order alphabetically"
               " by service name, and -u to list all respective account usernames.\n"
-              "Form: LS (optional -s and/or -u)" % keyword)
+              " Form: LS (optional -s and/or -u)" % keyword)
 
     elif keyword == "CLEAR":
-        print("-----> %s Help\nClear the clipboard.\n"
-              "Form: CLEAR" % keyword)
+        print("-----> %s Help\n Clear the clipboard.\n"
+              " Form: CLEAR" % keyword)
 
     elif keyword == "CREATE":
-        print("-----> %s Help\nCreate the database tables in the current working directory."
+        print("-----> %s Help\n Create the database tables in the PWManager directory."
               " Requires confirmation upon use.\n"
-              "Form: CREATE confirm" % keyword)
+              " Form: CREATE confirm" % keyword)
 
     elif keyword == "DROP":
-        print("-----> %s Help\nDrop the database tables. Requires confirmation upon use.\n"
-              "Form: DROP confirm" % keyword)
+        print("-----> %s Help\n Drop the database tables. Requires confirmation upon use.\n"
+              " Form: DROP confirm" % keyword)
 
     elif keyword == "ROLLBACK":
-        print("-----> %s Help\nRollback the database to the previous commit.\n"
-              "Form: ROLLBACK" % keyword)
+        print("-----> %s Help\n Rollback the database to the previous commit.\n"
+              " Form: ROLLBACK" % keyword)
 
     else:
         print("Invalid keyword.")
