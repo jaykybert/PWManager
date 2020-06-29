@@ -1,4 +1,3 @@
-
 from cryptography.fernet import Fernet
 import getpass
 import os
@@ -208,16 +207,6 @@ def menu():
                 print("Table deletion requires confirmation. Type CONFIRM after DROP.")
         else:
             print("Invalid number of arguments. Type CONFIRM after DROP.")
-
-    # Rollback the database to the previous commit.
-    elif sys.argv[1].upper() == "ROLLBACK":
-        if len(sys.argv) == 3:
-            if sys.argv[2].upper() == "CONFIRM":
-                rollback()
-            else:
-                print("Rollback requires confirmation. Type CONFIRM after ROLLBACK.")
-        else:
-            print("Invalid number of arguments. Type CONFIRM after ROLLBACK.")
 
     else:
         print("Invalid keyword. Type HELP for more information.")
@@ -557,8 +546,7 @@ def info(keyword=None):
               " To get started, use the CREATE keyword to setup the database along with CONFIRM.\n Then, define"
               " a service using DEFINE, add accounts to a service using ADD, and get the password to an account"
               " using GET.\n Below are all keywords. Type HELP KEYWORD for more information on a particular keyword."
-              "\n  - DEFINE\n  - ADD\n  - GET\n  - UPDATE\n  - REMOVE\n  - LS\n  - CLEAR\n  - CREATE\n  - DROP\n"
-              "  - ROLLBACK")
+              "\n  - DEFINE\n  - ADD\n  - GET\n  - UPDATE\n  - REMOVE\n  - LS\n  - CLEAR\n  - CREATE\n  - DROP")
 
     elif keyword == "DEFINE":
         print("-----> %s Help\n Add a service with a name and optional shorthand keyword. Service name"
@@ -604,10 +592,6 @@ def info(keyword=None):
         print("-----> %s Help\n Drop the database tables. Requires confirmation upon use.\n"
               " Form: DROP confirm" % keyword)
 
-    elif keyword == "ROLLBACK":
-        print("-----> %s Help\n Rollback the database to the previous commit.\n"
-              " Form: ROLLBACK" % keyword)
-
     else:
         print("Invalid keyword.")
 
@@ -651,12 +635,6 @@ def drop():
 
     except sqlite3.OperationalError:
         print("Tables don't exist.")
-
-
-def rollback():
-    """ Rollback the database. """
-    connection.rollback()
-    print("Database rollback successful.")
 
 
 # ---------- Run ---------- #
