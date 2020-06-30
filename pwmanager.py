@@ -103,6 +103,11 @@ def decrypt(enc_pw):
 
 
 def tables_exist():
+    """ Check if the database tables exist inside the database.
+
+    :return: true if they exist, false otherwise.
+    """
+
     cursor.execute("""SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'encryption';""")
     return len(cursor.fetchall()) > 0
 
@@ -111,8 +116,7 @@ def tables_exist():
 
 
 def menu():
-    """
-    Menu - use cl arguments to go to specific functions.
+    """ Menu - use cl arguments to go to specific functions.
     Service name and shorthand arguments are made lower case - avoids case sensitivity.
     """
     # Help screen if no arguments provided.
@@ -224,7 +228,7 @@ def define(service, shorthand=None):
     :param shorthand: the (optional) shorthand of the name, for ease of use.
     """
     if not tables_exist():
-        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        print("Tables do not exist. Type CREATE CONFIRM to create the tables.")
         return
 
     if shorthand is None:  # Only check for name conflicts.
@@ -256,7 +260,7 @@ def add(service):
     :param service: the service to create an account for (either name or shorthand).
     """
     if not tables_exist():
-        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        print("Tables do not exist. Type CREATE CONFIRM to create the tables.")
         return
 
     cursor.execute("""SELECT service_name FROM service WHERE service_name = ? OR shorthand_name == ?;""",
@@ -291,7 +295,7 @@ def get(service):
     :param service: name or shorthand of the service.
     """
     if not tables_exist():
-        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        print("Tables do not exist. Type CREATE CONFIRM to create the tables.")
         return
 
     ser = get_service_name(service)
@@ -340,7 +344,7 @@ def update_account(service):
         print("Account updated. (%s -> %s)" % (old_name, new_name))
 
     if not tables_exist():
-        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        print("Tables do not exist. Type CREATE CONFIRM to create the tables.")
         return
 
     rec = get_accounts_from_service(service)
@@ -387,7 +391,7 @@ def update_service(service):
     :param service: the service to be updated.
     """
     if not tables_exist():
-        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        print("Tables do not exist. Type CREATE CONFIRM to create the tables.")
         return
 
     service_info = get_service_info(service)
@@ -435,7 +439,7 @@ def remove_service(service_lookup):
     :param service_lookup: the service's name or shorthand.
     """
     if not tables_exist():
-        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        print("Tables do not exist. Type CREATE CONFIRM to create the tables.")
         return
 
     service = get_service_name(service_lookup)
@@ -466,7 +470,7 @@ def remove_account(service):
         print("Account deleted. (%s)" % account_name)
 
     if not tables_exist():
-        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        print("Tables do not exist. Type CREATE CONFIRM to create the tables.")
         return
 
     accounts = get_accounts_from_service(service)
@@ -496,7 +500,7 @@ def ls(alphabetical=False, acc=False):
     :param acc: display all related account usernames.
     """
     if not tables_exist():
-        print("Tables do not exist. Type CREATE CONFIRM to create tables.")
+        print("Tables do not exist. Type CREATE CONFIRM to create the tables.")
         return
 
     # Display services and the related accounts.
