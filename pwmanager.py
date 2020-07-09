@@ -6,6 +6,16 @@ import sqlite3
 import sys
 
 
+# TODO: Backup function - backup the current db to a specified file path.
+#   is there a way to update/synchronise it with the main db? or maybe backup -update
+#   if you have to manually update the backup, we need to remember where it is - .dat?
+#   or maybe just overwrite it? simpler, but less efficient
+#    Add help text for BACKUP.
+
+# TODO: Potentially change create function for reuse? Pass the connection as a param,
+#   so you can specify what db to create the tables in. Or just write the code again.
+
+
 # ---------- Query Functions ---------- #
 
 
@@ -211,6 +221,14 @@ def menu():
                 print("Table deletion requires confirmation. Type CONFIRM after DROP.")
         else:
             print("Invalid number of arguments. Type CONFIRM after DROP.")
+
+    elif sys.argv[1].upper() == "BACKUP":
+        if len(sys.argv) == 3:
+            backup(sys.argv[2])
+        elif len(sys.argv) == 2:
+            backup()
+        else:
+            print("Invalid number of arguments.")
 
     else:
         print("Invalid keyword. Type HELP for more information.")
@@ -639,6 +657,58 @@ def drop():
 
     except sqlite3.OperationalError:
         print("Tables don't exist.")
+
+
+def backup(fp=None):
+    """
+    Create a copy of the database at the provided filepath.
+    :param fp: The filepath. Default to None.
+    """
+
+    def copy_table(src, dest, tbl):
+        """ Copy a table from one db to another.
+
+        :param src: the source database.
+        :param dest: the destination database.
+        :param tbl: the table to be copied.
+        :return:
+        """
+
+        # try to go through table - if invalid tbl, will throw sqlite exception.
+        # get all rows
+        # create the table on the other connection, insert all results.
+        # potential return true/false if successful?
+
+        res = cursor.execute("SELECT * FROM %s" % tbl)
+        b_cursor = b_connection.cursor()
+
+        for row in res.fetchall():
+            b_cursor.execute("INSERT OR REPLACE INTO %s VALUES(%s, %s);" % (tbl, row[0], row[1]))
+
+        print(res)
+
+
+
+
+    if fp is None:
+        # Default to same dir.
+        b_file_path = os.path.realpath(__file__)
+        fp = os.path.split(b_file_path)[0]
+    print(fp)
+
+    b_connection = sqlite3.connect(os.path.join(fp, "store_backup.db"))
+    copy_table(connection, b_connection, "service")
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ---------- Run ---------- #
