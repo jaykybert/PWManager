@@ -206,7 +206,7 @@ def menu():
     elif sys.argv[1].upper() == "CREATE":
         if len(sys.argv) == 3:
             if sys.argv[2].upper() == "CONFIRM":
-                create()
+                create(connection)
             else:
                 print("Type CONFIRM after CREATE.")
         else:
@@ -216,7 +216,7 @@ def menu():
     elif sys.argv[1].upper() == "DROP":
         if len(sys.argv) == 3:
             if sys.argv[2].upper() == "CONFIRM":
-                drop()
+                drop(connection)
             else:
                 print("Table deletion requires confirmation. Type CONFIRM after DROP.")
         else:
@@ -620,95 +620,90 @@ def info(keyword=None):
 
 # ---------- Database Functions ---------- #
 
-def create():
-    """ Create the tables. Generate a key, store in db. """
+def create(db_connection):
+    """ Create the tables. Generate a key, store in db.
+
+    :param db_connection: the database connection which will store the tables."""
+    db_cursor = db_connection.cursor()
     try:
-        cursor.execute("""CREATE TABLE service (
+        db_cursor.execute("""CREATE TABLE service (
                         service_name  text PRIMARY KEY,
                         shorthand_name text);""")
 
-        cursor.execute("""CREATE TABLE account (
+        db_cursor.execute("""CREATE TABLE account (
                         account_name text,
                         account_pw text,
                         service_name text NOT NULL,
                         FOREIGN KEY (service_name) REFERENCES service(service_name));""")
 
-        cursor.execute("""CREATE TABLE encryption (key text);""")
+        db_cursor.execute("""CREATE TABLE encryption (key text);""")
 
         # Generate and store key.
         key = Fernet.generate_key()
-        cursor.execute("""INSERT INTO encryption VALUES(?)""", (key,))
+        db_cursor.execute("""INSERT INTO encryption VALUES(?)""", (key,))
 
-        connection.commit()
+        db_connection.commit()
         print("Tables created.")
 
     except sqlite3.OperationalError:
         print("Tables already exist.")
 
 
-def drop():
-    """ Drop the tables. """
+def drop(db_connection):
+    """ Drop the tables.
+
+     :param db_connection: the database connection which will drop the tables."""
+    db_cursor = db_connection.cursor()
+
     try:
-        cursor.execute("DROP TABLE account;")
-        cursor.execute("DROP TABLE service;")
-        cursor.execute("DROP TABLE encryption;")
-        connection.commit()
+        db_cursor.execute("DROP TABLE account;")
+        db_cursor.execute("DROP TABLE service;")
+        db_cursor.execute("DROP TABLE encryption;")
+        db_connection.commit()
         print("Tables deleted.")
 
     except sqlite3.OperationalError:
         print("Tables don't exist.")
 
 
-def backup(fp=None):
+def backup(filepath=None):
     """
     Create a copy of the database at the provided filepath.
-    :param fp: The filepath. Default to None.
+    :param filepath: The filepath where the backup will be created.
     """
 
-    def copy_table(src, dest, tbl):
-        """ Copy a table from one db to another.
-
-        :param src: the source database.
-        :param dest: the destination database.
-        :param tbl: the table to be copied.
-        :return:
-        """
-
-        # try to go through table - if invalid tbl, will throw sqlite exception.
-        # get all rows
-        # create the table on the other connection, insert all results.
-        # potential return true/false if successful?
-
-        res = cursor.execute("SELECT * FROM %s" % tbl)
+    if filepath is None:
+        # Default to the PWManager directory.
+        b_file_path = os.path.realpath(__file__)
+        filepath = os.path.split(b_file_path)[0]
+    try:
+        b_connection = sqlite3.connect(os.path.join(filepath, "store_backup.db"))
+        create(b_connection)  # Create the tables in the backup database.
         b_cursor = b_connection.cursor()
 
-        for row in res.fetchall():
-            b_cursor.execute("INSERT OR REPLACE INTO %s VALUES(%s, %s);" % (tbl, row[0], row[1]))
+        # Copy data from SERVICE table.
+        cursor.execute("SELECT * FROM service;")
+        for row in cursor.fetchall():
+            b_cursor.execute("INSERT INTO service VALUES(?, ?)", (row[0], row[1]))
+        print("Copied service data...",)
 
-        print(res)
+        # Copy data from ACCOUNT table.
+        cursor.execute("SELECT * FROM account;")
+        for row in cursor.fetchall():
+            b_cursor.execute("INSERT INTO account VALUES(?, ?, ?)", (row[0], row[1], row[2]))
+        print("Copied account data...",)
 
+        # Copy data from ENCRYPTION table.
+        cursor.execute("SELECT * FROM encryption;")
+        for row in cursor.fetchall():
+            b_cursor.execute("INSERT INTO encryption VALUES(?)", (row[0],))
+        print("Copied encryption data...")
 
+        b_connection.commit()
+        print("Backup complete.")
 
-
-    if fp is None:
-        # Default to same dir.
-        b_file_path = os.path.realpath(__file__)
-        fp = os.path.split(b_file_path)[0]
-    print(fp)
-
-    b_connection = sqlite3.connect(os.path.join(fp, "store_backup.db"))
-    copy_table(connection, b_connection, "service")
-
-
-
-
-
-
-
-
-
-
-
+    except sqlite3.OperationalError:
+        print("Invalid filepath provided.")
 
 
 # ---------- Run ---------- #
