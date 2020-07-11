@@ -6,16 +6,6 @@ import sqlite3
 import sys
 
 
-# TODO: Backup function - backup the current db to a specified file path.
-#   is there a way to update/synchronise it with the main db? or maybe backup -update
-#   if you have to manually update the backup, we need to remember where it is - .dat?
-#   or maybe just overwrite it? simpler, but less efficient
-#    Add help text for BACKUP.
-
-# TODO: Potentially change create function for reuse? Pass the connection as a param,
-#   so you can specify what db to create the tables in. Or just write the code again.
-
-
 # ---------- Query Functions ---------- #
 
 
@@ -223,10 +213,19 @@ def menu():
             print("Invalid number of arguments. Type CONFIRM after DROP.")
 
     elif sys.argv[1].upper() == "BACKUP":
-        if len(sys.argv) == 3:
-            backup(sys.argv[2])
-        elif len(sys.argv) == 2:
+        if len(sys.argv) == 2:
             backup()
+        elif len(sys.argv) == 3:
+            backup(sys.argv[2])
+        elif len(sys.argv) == 4 & sys.argv[2].upper() == "REMOVE":
+            # TODO: Remove the backup at the specified file path.
+            #  CM-Line Form 1: pw backup remove filepath   - verbose
+            #  CM-Line Form 2: pw remove -b filepath   - makes use of the remove keyword already defined.
+            #    ... so, just alter the "if arg == remove" part.
+            #    ... consider the db connection, what happens if the filepath doesn't have a db?
+            #    - we dont want to create a new one.
+            print("")
+
         else:
             print("Invalid number of arguments.")
 
@@ -568,7 +567,8 @@ def info(keyword=None):
               " To get started, use the CREATE keyword to setup the database along with CONFIRM.\n Then, define"
               " a service using DEFINE, add accounts to a service using ADD, and get the password to an account"
               " using GET.\n Below are all keywords. Type HELP KEYWORD for more information on a particular keyword."
-              "\n  - DEFINE\n  - ADD\n  - GET\n  - UPDATE\n  - REMOVE\n  - LS\n  - CLEAR\n  - CREATE\n  - DROP")
+              "\n  - DEFINE\n  - ADD\n  - GET\n  - UPDATE\n  - REMOVE\n  - LS\n  - CLEAR\n  - CREATE\n  - DROP"
+              "\n  - BACKUP")
 
     elif keyword == "DEFINE":
         print("-----> %s Help\n Add a service with a name and optional shorthand keyword. Service name"
@@ -613,6 +613,10 @@ def info(keyword=None):
     elif keyword == "DROP":
         print("-----> %s Help\n Drop the database tables. Requires confirmation upon use.\n"
               " Form: DROP confirm" % keyword)
+
+    elif keyword == "BACKUP":
+        print("-----> %s Help\nBackup the database. Pass an optional filepath. Otherwise defaults to same directory.\n"
+              "Form: BACKUP (optional filepath)" % keyword)
 
     else:
         print("Invalid keyword.")
