@@ -6,6 +6,8 @@ import sqlite3
 import sys
 
 
+# TODO: Add print statement if ls is used and returns no results.
+
 # ---------- Query Functions ---------- #
 
 
@@ -708,6 +710,8 @@ def backup(filepath=None):
 
     except sqlite3.OperationalError:
         print("Invalid filepath provided.")
+        # This is a catch-all. Also excepts when you backup without having created the store.db tables.
+
 
 
 # ---------- Run ---------- #
