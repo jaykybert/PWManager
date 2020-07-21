@@ -168,6 +168,9 @@ def menu():
                 remove_account(sys.argv[3].lower())
             elif sys.argv[2].lower() == "-s":
                 remove_service(sys.argv[3].lower())
+
+            elif sys.argv[2].lower() == "-b":
+                remove_backup(sys.argv[3])
             else:
                 print("Invalid key. Use -a or -s.")
         else:
@@ -512,6 +515,19 @@ def remove_account(service):
             print("Number out of bounds.")
 
 
+def remove_backup(filepath):
+    """ Delete the database file at the specified filepath.
+
+    :param filepath: the filepath to the .db file.
+    """
+    backup_path = os.path.join(filepath, "store_backup.db")
+    try:
+        os.remove(backup_path)
+        print("Backup removed successfully.")
+    except FileNotFoundError:
+        print("The file doesn't exist at the specified filepath.")
+
+
 def ls(alphabetical=False, acc=False):
     """ List all services and relevant information.
 
@@ -691,13 +707,13 @@ def backup(filepath=None):
         cursor.execute("SELECT * FROM service;")
         for row in cursor.fetchall():
             b_cursor.execute("INSERT INTO service VALUES(?, ?)", (row[0], row[1]))
-        print("Copied service data...",)
+        print("Copied service data... ", end="")
 
         # Copy data from ACCOUNT table.
         cursor.execute("SELECT * FROM account;")
         for row in cursor.fetchall():
             b_cursor.execute("INSERT INTO account VALUES(?, ?, ?)", (row[0], row[1], row[2]))
-        print("Copied account data...",)
+        print("Copied account data... ", end="")
 
         # Copy data from ENCRYPTION table.
         cursor.execute("SELECT * FROM encryption;")
@@ -711,7 +727,6 @@ def backup(filepath=None):
     except sqlite3.OperationalError:
         print("Invalid filepath provided.")
         # This is a catch-all. Also excepts when you backup without having created the store.db tables.
-
 
 
 # ---------- Run ---------- #
